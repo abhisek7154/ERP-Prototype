@@ -1,4 +1,3 @@
-````md
 # School ERP MVP Architecture
 
 This document describes the current target architecture of the School ERP after removing unnecessary frontend modules and choosing a full-stack Next.js architecture.
