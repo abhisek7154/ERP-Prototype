@@ -1,3 +1,5 @@
+<img width="1355" height="828" alt="Screenshot 2026-07-06 184727" src="https://github.com/user-attachments/assets/cce138d1-c8e4-4280-8a77-f6f2614ed122" />
+
 # School ERP MVP Architecture
 
 This document describes the current target architecture of the School ERP after removing unnecessary frontend modules and choosing a full-stack Next.js architecture.
