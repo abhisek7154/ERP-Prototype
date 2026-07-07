@@ -1,13 +1,164 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
+}
+
+enum UserRole {
+  ADMIN
+  STAFF
+}
+
+enum StudentStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum ImportStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum RowStatus {
+  SUCCESS
+  FAILED
+}
+
+model School {
+  id        String @id @default(uuid())
+
+  name      String
+  code      String @unique
+
+  users      User[]
+  students   Student[]
+  importJobs ImportJob[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model User {
+  id           String @id @default(uuid())
+
+  schoolId     String
+
+  name         String
+  email        String @unique
+  passwordHash String
+
+  role         UserRole @default(ADMIN)
+
+  isActive     Boolean @default(true)
+
+  school        School @relation(fields: [schoolId], references: [id])
+  importJobs    ImportJob[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([schoolId])
+}
+
+model Student {
+  id                 String @id @default(uuid())
+
+  schoolId           String
+
+  registrationNumber String
+  name               String
+  fatherName         String?
+
+  course             String?
+
+  dateOfBirth        DateTime?
+  dateOfAdmission    DateTime?
+
+  status             StudentStatus @default(ACTIVE)
+
+  school             School @relation(fields: [schoolId], references: [id])
+
+  feePayments        FeePayment[]
+  importRows         ImportRow[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([schoolId, registrationNumber])
+  @@index([schoolId])
+  @@index([status])
+}
+
+model FeePayment {
+  id          String @id @default(uuid())
+
+  studentId   String
+
+  mrNumber    String?
+  receiptDate DateTime?
+
+  amountPaid  Decimal? @db.Decimal(10, 2)
+
+  student Student @relation(fields: [studentId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([studentId])
+}
+
+model ImportJob {
+  id String @id @default(uuid())
+
+  schoolId     String
+  importedById String
+
+  fileName     String
+
+  status       ImportStatus @default(PENDING)
+
+  totalRows    Int @default(0)
+  successRows  Int @default(0)
+  failedRows   Int @default(0)
+
+  completedAt  DateTime?
+
+  school      School @relation(fields: [schoolId], references: [id])
+  importedBy  User   @relation(fields: [importedById], references: [id])
+
+  rows ImportRow[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([schoolId])
+  @@index([importedById])
+}
+
+model ImportRow {
+  id String @id @default(uuid())
+
+  importJobId String
+  studentId   String?
+
+  rowNumber   Int
+
+  status       RowStatus
+
+  errorMessage String?
+
+  rawData      Json
+
+  importJob ImportJob @relation(fields: [importJobId], references: [id])
+  student   Student?  @relation(fields: [studentId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([importJobId])
+  @@index([studentId])
 }
