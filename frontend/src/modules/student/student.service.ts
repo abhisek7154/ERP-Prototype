@@ -1,35 +1,55 @@
 import { prisma } from "~/lib/prisma";
 
-export async function getStudents(search?: string) {
-  return prisma.student.findMany({
-    where: search
-      ? {
-          OR: [
-            {
-              registrationNumber: {
-                contains: search,
-                mode: "insensitive",
-              },
+interface GetStudentsOptions {
+  page?: number;
+  pageSize?: number;
+  search?: string;
+}
+
+export async function getStudents({
+  page = 1,
+  pageSize = 20,
+  search = "",
+}: GetStudentsOptions) {
+  const where = search
+    ? {
+        OR: [
+          {
+            registrationNumber: {
+              contains: search,
+              mode: "insensitive" as const,
             },
-            {
-              name: {
-                contains: search,
-                mode: "insensitive",
-              },
+          },
+          {
+            name: {
+              contains: search,
+              mode: "insensitive" as const,
             },
-            {
-              course: {
-                contains: search,
-                mode: "insensitive",
-              },
+          },
+          {
+            course: {
+              contains: search,
+              mode: "insensitive" as const,
             },
-          ],
-        }
-      : undefined,
+          },
+        ],
+      }
+    : {};
+
+  const total = await prisma.student.count({
+    where,
+  });
+
+  const students = await prisma.student.findMany({
+    where,
 
     orderBy: {
       createdAt: "desc",
     },
+
+    skip: (page - 1) * pageSize,
+
+    take: pageSize,
 
     select: {
       id: true,
@@ -40,4 +60,12 @@ export async function getStudents(search?: string) {
       status: true,
     },
   });
+
+  return {
+    students,
+    total,
+    currentPage: page,
+    pageSize,
+    totalPages: Math.ceil(total / pageSize),
+  };
 }
