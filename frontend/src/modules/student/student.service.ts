@@ -69,3 +69,21 @@ export async function getStudents({
     totalPages: Math.ceil(total / pageSize),
   };
 }
+  export async function getStudentById(id: string){
+    return prisma.student.findUnique({
+      where: {
+        id,
+      },
+      select: {
+        id: true,
+        registrationNumber: true,
+        name: true,
+        fatherName: true,
+        status: true,
+        dateOfBirth: true,
+        dateOfAdmission: true,
+        createdAt: true,
+        updatedAt: true
+      },
+    });
+  }
