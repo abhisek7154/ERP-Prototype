@@ -1,13 +1,6 @@
-import { StudentPagination } from "./StudentPagination";
-
 import Link from "next/link";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "~/components/ui/dropdown-menu";
-import { MoreHorizontal } from "lucide-react";
+
+import { StudentPagination } from "./StudentPagination";
 
 import {
   Table,
@@ -100,32 +93,17 @@ export function StudentTable({
                   <TableCell>{student.status}</TableCell>
 
                   <TableCell className="text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                        >
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem asChild>
-                          <Link href={`/dashboard/people/students/${student.id}`}>
-                            View
-                          </Link>
-                        </DropdownMenuItem>
-
-                        <DropdownMenuItem disabled>
-                          Edit
-                        </DropdownMenuItem>
-
-                        <DropdownMenuItem disabled>
-                          Archive
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                    <Button
+                      asChild
+                      variant="outline"
+                      size="sm"
+                    >
+                      <Link
+                        href={`/dashboard/people/students/${student.id}`}
+                      >
+                        View
+                      </Link>
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))
@@ -133,6 +111,7 @@ export function StudentTable({
           </TableBody>
         </Table>
       </CardContent>
+
       <StudentPagination
         currentPage={currentPage}
         totalPages={totalPages}

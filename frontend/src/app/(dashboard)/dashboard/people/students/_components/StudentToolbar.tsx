@@ -7,6 +7,8 @@ import { Input } from "~/components/ui/input";
 
 import { ImportDialog } from "./ImportDialog";
 
+import { AddStudentDialog } from "./AddStudentDialog";
+
 interface StudentToolbarProps {
   currentSearch: string;
 }
@@ -46,11 +48,7 @@ export function StudentToolbar({
 
         <div className="flex items-center gap-2">
           <ImportDialog />
-
-          <Button>
-            <Plus className="mr-2 h-4 w-4" />
-            Add Student
-          </Button>
+          <AddStudentDialog />
         </div>
       </div>
     </div>
