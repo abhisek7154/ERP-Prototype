@@ -1,5 +1,14 @@
 import { StudentPagination } from "./StudentPagination";
 
+import Link from "next/link";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "~/components/ui/dropdown-menu";
+import { MoreHorizontal } from "lucide-react";
+
 import {
   Table,
   TableBody,
@@ -91,12 +100,32 @@ export function StudentTable({
                   <TableCell>{student.status}</TableCell>
 
                   <TableCell className="text-right">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                    >
-                      View
-                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                        >
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem asChild>
+                          <Link href={`/dashboard/people/students/${student.id}`}>
+                            View
+                          </Link>
+                        </DropdownMenuItem>
+
+                        <DropdownMenuItem disabled>
+                          Edit
+                        </DropdownMenuItem>
+
+                        <DropdownMenuItem disabled>
+                          Archive
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </TableCell>
                 </TableRow>
               ))
