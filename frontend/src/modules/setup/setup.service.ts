@@ -5,32 +5,71 @@ import { prisma } from "~/lib/prisma";
 
 import type { SetupInput } from "./setup.validation";
 
-export async function isSetupComplete() {
+async function getDatabaseState() {
+  const schoolCount = await prisma.school.count();
   const userCount = await prisma.user.count();
 
-  return userCount > 0;
+  return {
+    schoolCount,
+    userCount,
+  };
 }
 
 export async function canRunSetup() {
-  return !(await isSetupComplete());
+  const { schoolCount, userCount } = await getDatabaseState();
+
+  // Fresh installation
+  if (schoolCount === 0 && userCount === 0) {
+    return true;
+  }
+
+  // Recovery (school exists but admin deleted)
+  if (schoolCount === 1 && userCount === 0) {
+    return true;
+  }
+
+  // Already initialized
+  if (schoolCount === 1 && userCount > 0) {
+    return false;
+  }
+
+  throw new Error(
+    `Invalid database state (schools=${schoolCount}, users=${userCount}).`
+  );
 }
 
 export async function initializeSystem(data: SetupInput) {
   return await prisma.$transaction(async (tx) => {
-    // Check if a school already exists
-    let school = await tx.school.findFirst();
+    const userCount = await tx.user.count();
 
-    // Create school only if none exists
-    if (!school) {
-      school = await tx.school.create({
-        data: {
-          name: data.schoolName,
-          code: data.schoolCode,
-        },
-      });
+    if (userCount > 0) {
+      throw new Error("System has already been initialized.");
     }
+        // Reuse existing school if it exists
+        let school = await tx.school.findFirst();
 
-    // Prevent duplicate admin email
+        // Fresh installation
+        if (!school) {
+        school = await tx.school.create({
+            data: {
+            name: data.schoolName,
+            code: data.schoolCode,
+            },
+        });
+        }
+        // Recovery mode
+        else {
+        if (
+            school.code !== data.schoolCode ||
+            school.name.trim().toLowerCase() !==
+            data.schoolName.trim().toLowerCase()
+        ) {
+            throw new Error(
+            `A school already exists (${school.name} - ${school.code}). Please use the existing school information.`
+            );
+        }
+        }
+
     const existingUser = await tx.user.findUnique({
       where: {
         email: data.adminEmail,
@@ -41,10 +80,8 @@ export async function initializeSystem(data: SetupInput) {
       throw new Error("Administrator email already exists.");
     }
 
-    // Hash password
     const passwordHash = await bcrypt.hash(data.password, 10);
 
-    // Create first administrator
     const admin = await tx.user.create({
       data: {
         name: data.adminName,
