@@ -1,16 +1,19 @@
 import { redirect } from "next/navigation";
+
 import { prisma } from "~/lib/prisma";
 
-export default async function HomePage() {
+import SetupForm from "./setup-form";
+
+export default async function SetupPage() {
   const user = await prisma.user.findFirst({
     select: {
       id: true,
     },
   });
 
-  if (!user) {
-    redirect("/setup");
+  if (user) {
+    redirect("/login");
   }
 
-  redirect("/login");
+  return <SetupForm />;
 }

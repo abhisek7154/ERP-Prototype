@@ -9,8 +9,23 @@ import { setupSchema } from "~/modules/setup/setup.validation";
 
 export async function POST(req: Request) {
   try {
-    // Check if setup is still allowed
-    const allowed = await canRunSetup();
+    let allowed = false;
+
+    try {
+      allowed = await canRunSetup();
+    } catch (error) {
+      return NextResponse.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Database is in an inconsistent state.",
+        },
+        {
+          status: 500,
+        }
+      );
+    }
 
     if (!allowed) {
       return NextResponse.json(
@@ -23,10 +38,8 @@ export async function POST(req: Request) {
       );
     }
 
-    // Parse request body
     const body = await req.json();
 
-    // Validate input
     const result = setupSchema.safeParse(body);
 
     if (!result.success) {
@@ -40,7 +53,6 @@ export async function POST(req: Request) {
       );
     }
 
-    // Initialize the system
     const setup = await initializeSystem(result.data);
 
     return NextResponse.json(
@@ -68,7 +80,10 @@ export async function POST(req: Request) {
 
     return NextResponse.json(
       {
-        error: error instanceof Error ? error.message : "Internal Server Error",
+        error:
+          error instanceof Error
+            ? error.message
+            : "Internal Server Error",
       },
       {
         status: 500,

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
@@ -53,7 +54,7 @@ export default function LoginPage() {
         onSubmit={handleLogin}
         className="w-full max-w-sm space-y-4 rounded-lg border p-6 shadow"
       >
-        <h1 className="text-2xl font-bold text-center">
+        <h1 className="text-center text-2xl font-bold">
           Admin Login
         </h1>
 
@@ -94,6 +95,16 @@ export default function LoginPage() {
             {error}
           </p>
         )}
+
+        {/* Forgot Password */}
+        <div className="text-right">
+          <Link
+            href="/forgot-password"
+            className="text-sm text-blue-600 hover:underline"
+          >
+            Forgot Password?
+          </Link>
+        </div>
 
         <button
           type="submit"
