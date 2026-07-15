@@ -1,81 +1,54 @@
+import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { NextResponse } from "next/server";
+import { loginUser } from "~/modules/auth/auth.service";
 
-import { ADMIN_USER } from "~/modules/auth/admin";
-import { createJWT } from "~/modules/auth/jwt";
-import { loginSchema } from "~/modules/auth/schema";
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
 
+    const { email, password } = body;
 
-export async function POST(req: Request) {
+    if (!email || !password) {
+      return NextResponse.json(
+        { message: "Email and password are required." },
+        { status: 400 }
+      );
+    }
 
-  const body = await req.json();
+    const result = await loginUser(email, password);
 
+    if (!result) {
+      return NextResponse.json(
+        { message: "Invalid email or password." },
+        { status: 401 }
+      );
+    }
 
-  const result =
-    loginSchema.safeParse(body);
+    const cookieStore = await cookies();
 
-
-  if (!result.success) {
-
-    return NextResponse.json(
-      {
-        error: "Invalid data",
-      },
-      {
-        status: 400,
-      }
-    );
-
-  }
-
-
-  const { email, password } =
-    result.data;
-
-
-  if (
-    email !== ADMIN_USER.email ||
-    password !== ADMIN_USER.password
-  ) {
-
-    return NextResponse.json(
-      {
-        error: "Unauthorized",
-      },
-      {
-        status: 401,
-      }
-    );
-
-  }
-
-
-  const token =
-    await createJWT({
-      email,
-      role: ADMIN_USER.role,
+    cookieStore.set("auth-token", result.token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 7,
     });
 
-
-  const cookieStore =
-    await cookies();
-
-
-  cookieStore.set(
-    "admin-token",
-    token,
-    {
-      httpOnly: true,
-      path: "/",
-      sameSite: "strict",
-    }
-  );
-
-
-  return NextResponse.json(
-    {
+    return NextResponse.json({
       success: true,
-    }
-  );
+      user: {
+        id: result.user.id,
+        name: result.user.name,
+        email: result.user.email,
+        role: result.user.role,
+      },
+    });
+  } catch (error) {
+    console.error("Login error:", error);
 
+    return NextResponse.json(
+      { message: "Internal server error." },
+      { status: 500 }
+    );
+  }
 }

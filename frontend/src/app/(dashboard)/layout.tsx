@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
-import { verifyJWT } from "~/modules/auth/jwt";
+import { verifyToken } from "~/modules/auth/jwt";
 
 import { AppSidebar } from "~/app/(dashboard)/_components/app-sidebar";
 import { DashboardHeader } from "~/app/(dashboard)/_components/dashboard-header";
@@ -24,7 +24,7 @@ export default async function DashboardLayout({
 
 
   const token =
-    cookieStore.get("admin-token")?.value;
+    cookieStore.get("auth-token")?.value;
 
 
   if (!token) {
@@ -36,7 +36,7 @@ export default async function DashboardLayout({
 
   try {
 
-    await verifyJWT(token);
+    await verifyToken(token);
 
   } catch {
 
