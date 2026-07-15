@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { importStudents } from "~/modules/import/students/student-import.service";
 
+import { getAuthenticationUser } from "~/modules/auth/auth.helper";
+
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
@@ -18,7 +20,16 @@ export async function POST(request: NextRequest) {
     }
 
     // Temporary: replace with real schoolId later from auth/session
-    const schoolId = "e448f8be-1387-40ee-8eac-63892fe51611";
+    const auth = await getAuthenticationUser();
+
+      if (!auth) {
+        return NextResponse.json(
+          { error: "Unauthorized" },
+          { status: 401 }
+        );
+      }
+
+const schoolId = auth.schoolId;
 
     const result = await importStudents(file, schoolId);
 

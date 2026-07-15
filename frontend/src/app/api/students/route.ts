@@ -4,6 +4,7 @@ import {
   createStudent,
   createStudentSchema,
 } from "~/modules/student";
+import { getAuthenticationUser } from "~/modules/auth/auth.helper";
 
 
 export async function GET() {
@@ -47,8 +48,16 @@ export async function POST(request: Request) {
 
     const data = createStudentSchema.parse(body);
 
-    // TODO: Replace with authenticated user's schoolId
-    const schoolId = "e448f8be-1387-40ee-8eac-63892fe51611";
+    const user = await getAuthenticationUser();
+
+if (!user) {
+  return NextResponse.json(
+    { error: "Unauthorized" },
+    { status: 401 }
+  );
+}
+
+const schoolId = user.schoolId;
 
     const student = await createStudent(schoolId, data);
 
