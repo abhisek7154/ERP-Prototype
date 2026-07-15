@@ -1,4 +1,4 @@
-import { SignJWT, jwtVerify, JWTPayload } from "jose";
+import { SignJWT, jwtVerify, type JWTPayload } from "jose";
 import { UserRole } from "@prisma/client";
 
 export interface AuthTokenPayload extends JWTPayload {
@@ -12,7 +12,7 @@ const secret = new TextEncoder().encode(process.env.JWT_SECRET!);
 export async function createToken(
   payload: AuthTokenPayload
 ): Promise<string> {
-  return await new SignJWT({
+  return new SignJWT({
     userId: payload.userId,
     schoolId: payload.schoolId,
     role: payload.role,
@@ -27,6 +27,11 @@ export async function verifyToken(
   token: string
 ): Promise<AuthTokenPayload> {
   const { payload } = await jwtVerify(token, secret);
-
   return payload as AuthTokenPayload;
 }
+
+/*
+ * Compatibility with upstream
+ */
+export const createJWT = createToken;
+export const verifyJWT = verifyToken;

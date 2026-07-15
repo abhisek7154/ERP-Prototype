@@ -1,3 +1,7 @@
+import Link from "next/link";
+
+import { StudentPagination } from "./StudentPagination";
+
 import {
   Table,
   TableBody,
@@ -28,10 +32,14 @@ type Student = {
 
 interface StudentTableProps {
   students: Student[];
+  currentPage: number;
+  totalPages: number;
 }
 
 export function StudentTable({
   students,
+  currentPage,
+  totalPages,
 }: StudentTableProps) {
   return (
     <Card>
@@ -86,10 +94,15 @@ export function StudentTable({
 
                   <TableCell className="text-right">
                     <Button
+                      asChild
                       variant="outline"
                       size="sm"
                     >
-                      View
+                      <Link
+                        href={`/dashboard/people/students/${student.id}`}
+                      >
+                        View
+                      </Link>
                     </Button>
                   </TableCell>
                 </TableRow>
@@ -98,6 +111,11 @@ export function StudentTable({
           </TableBody>
         </Table>
       </CardContent>
+
+      <StudentPagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+      />
     </Card>
   );
 }
