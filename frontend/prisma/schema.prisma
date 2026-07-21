@@ -28,6 +28,22 @@ enum RowStatus {
   FAILED
 }
 
+enum PaymentStatus {
+  PAID
+  PENDING
+  FAILED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CASH
+  UPI
+  CARD
+  BANK_TRANSFER
+  CHEQUE
+  ONLINE
+}
+
 model School {
   id        String @id @default(uuid())
 
@@ -96,14 +112,28 @@ model Student {
 }
 
 model FeePayment {
-  id          String @id @default(uuid())
+  id String @id @default(uuid())
 
-  studentId   String
+  studentId String
 
-  mrNumber    String?
-  receiptDate DateTime?
+  // Receipt Information
+  mrNumber      String?
+  receiptNumber String? @unique
+  receiptDate   DateTime?
 
-  amountPaid  Decimal? @db.Decimal(10, 2)
+  // Payment
+  amountPaid Decimal @db.Decimal(10, 2)
+
+  status PaymentStatus @default(PAID)
+
+  paymentMethod PaymentMethod @default(CASH)
+
+  transactionId String?
+
+  remarks String?
+
+  // Audit
+  collectedBy String?
 
   student Student @relation(fields: [studentId], references: [id])
 
@@ -111,6 +141,9 @@ model FeePayment {
   updatedAt DateTime @updatedAt
 
   @@index([studentId])
+  @@index([status])
+  @@index([receiptDate])
+  @@index([paymentMethod])
 }
 
 model ImportJob {
