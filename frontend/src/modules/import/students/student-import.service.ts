@@ -1,6 +1,9 @@
 import { prisma } from "~/lib/prisma";
 import { parseExcel } from "../shared/excel.parser";
-import { mapFeePaymentImport, mapStudentImport } from "./student-import.mapper";
+import {
+  mapFeePaymentImport,
+  mapStudentImport,
+} from "./student-import.mapper";
 import { validateStudentRows } from "./student-import.validator";
 
 export interface ImportSummary {
@@ -44,13 +47,15 @@ export async function importStudents(
 
     const feeData = mapFeePaymentImport(row, student.id);
 
-    if (
-      feeData.mrNumber ||
-      feeData.amountPaid !== null ||
-      feeData.receiptDate
-    ) {
+    // Create a fee payment only if an amount is provided
+    if (feeData.amountPaid !== null && feeData.amountPaid !== undefined) {
       await prisma.feePayment.create({
-        data: feeData,
+        data: {
+          studentId: feeData.studentId,
+          amountPaid: feeData.amountPaid,
+          mrNumber: feeData.mrNumber ?? undefined,
+          receiptDate: feeData.receiptDate ?? undefined,
+        },
       });
     }
 
@@ -64,4 +69,3 @@ export async function importStudents(
     errors: invalidRows,
   };
 }
-
