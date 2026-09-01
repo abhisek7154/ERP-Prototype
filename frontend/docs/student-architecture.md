@@ -39,12 +39,12 @@ This codebase does not appear to have a separate Student repository layer. Persi
 
 ```mermaid
 flowchart TD
-    UI[Student UI Pages / Components]
-    API[/api/students route]
-    SERVICE[student.service.ts]
-    ADMISSION[admission.service.ts]
-    DB[(Prisma PostgreSQL)]
-    IMPORT[student-import.service.ts]
+    UI["Student UI Pages / Components"]
+    API["/api/students route"]
+    SERVICE["student.service.ts"]
+    ADMISSION["admission.service.ts"]
+    DB["Prisma PostgreSQL"]
+    IMPORT["student-import.service.ts"]
 
     UI --> SERVICE
     API --> SERVICE
@@ -383,12 +383,12 @@ erDiagram
 
 ```mermaid
 flowchart TD
-    UI[Student Dashboard UI]
-    PAGE[Student Pages]
-    API[/api/students]
-    SERVICE[student.service.ts]
-    ADMISSION[admission.service.ts]
-    DB[(Prisma)]
+    UI["Student Dashboard UI"]
+    PAGE["Student Pages"]
+    API["/api/students"]
+    SERVICE["student.service.ts"]
+    ADMISSION["admission.service.ts"]
+    DB["Prisma"]
 
     UI --> PAGE
     PAGE --> SERVICE
