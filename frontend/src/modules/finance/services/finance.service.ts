@@ -1,3 +1,8 @@
+import {
+  buildFeeLedger,
+  getMissingFeeLedgerEntries,
+} from "@/modules/admission/admission.service";
+
 import * as financeRepository from "./repository/finance.repository";
 
 import type {
@@ -5,6 +10,12 @@ import type {
   UpdateFeePaymentInput,
   FinanceQuery,
 } from "./finance.schema";
+
+export const INCOMPLETE_FINANCIAL_STATE_MESSAGE =
+  "Admission financial state is incomplete. Please repair the fee ledger before collecting payment.";
+
+export const INVALID_PAYMENT_ITEMS_MESSAGE =
+  "Selected fee items are invalid for this admission.";
 
 /* -------------------------------------------------------------------------- */
 /*                              Get Payments                                  */
@@ -35,23 +46,46 @@ export async function createPayment(
     throw new Error("Admission not found.");
   }
 
-  // Fee schedules belong to the course
-  const selectedSchedules =
-    admission.course.feeSchedules.filter(
-      (schedule) =>
-        data.paymentItems.some(
-          (item) =>
-            item.feeScheduleId ===
-            schedule.id,
-        ),
+  const expectedLedger = buildFeeLedger(
+    admission.id,
+    admission.course,
+    admission.admissionDate,
+  );
+
+  if (
+    getMissingFeeLedgerEntries(
+      admission.feeLedger,
+      expectedLedger.map((entry) => ({
+        feeScheduleId:
+          entry.feeScheduleId,
+        title: entry.title,
+        installmentNumber:
+          entry.installmentNumber,
+      })),
+    ).length > 0
+  ) {
+    throw new Error(
+      INCOMPLETE_FINANCIAL_STATE_MESSAGE,
+    );
+  }
+
+  const selectedLedgerEntries =
+    data.paymentItems.map((item) =>
+      admission.feeLedger.find(
+        (ledger) =>
+          ledger.feeScheduleId ===
+            item.feeScheduleId &&
+          ledger.title === item.title,
+      ),
     );
 
   if (
-    selectedSchedules.length !==
-    data.paymentItems.length
+    selectedLedgerEntries.some(
+      (ledger) => !ledger,
+    )
   ) {
     throw new Error(
-      "One or more fee items are invalid.",
+      INVALID_PAYMENT_ITEMS_MESSAGE,
     );
   }
 

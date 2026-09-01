@@ -3,6 +3,7 @@ import { randomUUID } from "crypto";
 import { Gender, Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
+import { generateFeeLedger } from "@/modules/admission/admission.service";
 import { buildImportPreview } from "@/modules/import/engine/importer";
 
 // -------------------------------------------------------
@@ -86,6 +87,18 @@ export async function importStudents(
     where: {
       schoolId,
       isActive: true,
+    },
+
+    include: {
+      feeSchedules: {
+        where: {
+          isActive: true,
+        },
+
+        orderBy: {
+          dueOrder: "asc",
+        },
+      },
     },
   });
 
@@ -193,6 +206,18 @@ if (!course) {
       name: courseCode,
       admissionFee: 0,
       isActive: true,
+    },
+
+    include: {
+      feeSchedules: {
+        where: {
+          isActive: true,
+        },
+
+        orderBy: {
+          dueOrder: "asc",
+        },
+      },
     },
   });
 
@@ -332,6 +357,13 @@ if (!course) {
             },
           });
 
+        await generateFeeLedger(
+          tx,
+          admission.id,
+          course,
+          admission.admissionDate,
+        );
+
         //-------------------------------------------------
         // Create Fee Payment
         //-------------------------------------------------
@@ -340,23 +372,9 @@ if (!course) {
           data.payment.amountPaid !== undefined &&
           data.payment.amountPaid > 0
         ) {
-          await tx.feePayment.create({
-            data: {
-              admissionId: admission.id,
-
-              amountPaid: new Prisma.Decimal(
-                data.payment.amountPaid
-              ),
-
-              mrNumber:
-                data.payment.mrNumber ?? null,
-
-              receiptDate:
-                data.payment.receiptDate ?? null,
-
-              status: "PAID",
-            },
-          });
+          throw new Error(
+            "Student import cannot create payments automatically. Import the admission first and repair payment history separately."
+          );
         }
 
         //-------------------------------------------------

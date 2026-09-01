@@ -1,5 +1,6 @@
 import { prisma } from "~/lib/prisma";
 import { generateRegistrationNumber } from "~/lib/generate-registration-number";
+import { generateFeeLedger } from "~/modules/admission/admission.service";
 
 import type { CreateStudentInput } from "./student.schema";
 
@@ -150,6 +151,18 @@ export async function createStudent(
         schoolId,
         isActive: true,
       },
+
+      include: {
+        feeSchedules: {
+          where: {
+            isActive: true,
+          },
+
+          orderBy: {
+            dueOrder: "asc",
+          },
+        },
+      },
     });
 
     if (!course) {
@@ -246,6 +259,13 @@ export async function createStudent(
         isActive: true,
       },
     });
+
+    await generateFeeLedger(
+      tx,
+      admission.id,
+      course,
+      admission.admissionDate,
+    );
 
     // --------------------------------------------------
     // Return student + admission + course

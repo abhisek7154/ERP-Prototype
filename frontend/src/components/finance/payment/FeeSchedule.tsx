@@ -1,22 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import type { FeeLedgerItem } from "@/modules/finance/services/types";
+
 import FeeItemCard, {
   FeeItemStatus,
 } from "./FeeItemCard";
 
 export interface FeeItem {
   id: string;
+  feeScheduleId?: string | null;
   title: string;
   amount: number;
   status: FeeItemStatus;
 }
 
 interface FeeScheduleProps {
+  ledgerItems?: FeeLedgerItem[];
   admissionFee: number;
   monthlyFee: number;
   durationMonths: number;
   certificateFee: number;
+  selectedItems?: FeeItem[];
 
   /**
    * IDs already paid.
@@ -32,84 +36,113 @@ interface FeeScheduleProps {
 }
 
 export default function FeeSchedule({
+  ledgerItems,
   admissionFee,
   monthlyFee,
   durationMonths,
   certificateFee,
+  selectedItems = [],
   paidItems = [],
   onSelectionChange,
 }: FeeScheduleProps) {
-  const [selected, setSelected] =
-    useState<string[]>([]);
+  const selectedIds = new Set(
+    selectedItems.map((item) => item.id),
+  );
 
-  const feeItems: FeeItem[] = [
-    {
-      id: "admission",
-      title: "Admission Fee",
-      amount: admissionFee,
-      status: paidItems.includes("admission")
-        ? "PAID"
-        : selected.includes("admission")
-          ? "SELECTED"
-          : "PENDING",
-    },
+  const feeItems: FeeItem[] =
+    ledgerItems && ledgerItems.length > 0
+      ? ledgerItems.map((item) => {
+          const itemId =
+            item.feeScheduleId
+              ? `${item.feeScheduleId}|${item.title}|${item.installmentNumber ?? "single"}`
+              : item.id;
 
-    ...Array.from(
-      { length: durationMonths },
-      (_, i) => {
-        const id = `month-${i + 1}`;
+          return {
+            id: itemId,
+            feeScheduleId:
+              item.feeScheduleId,
+            title: item.title,
+            amount: Number(item.dueAmount),
+            status:
+              item.status === "PAID" ||
+              Number(item.dueAmount) <= 0
+                ? "PAID"
+                : selectedIds.has(itemId)
+                  ? "SELECTED"
+                  : "PENDING",
+          };
+        })
+      : [
+          {
+            id: "admission",
+            title: "Admission Fee",
+            amount: admissionFee,
+            status: paidItems.includes(
+              "admission",
+            )
+              ? "PAID"
+              : selectedIds.has(
+                    "admission",
+                  )
+                ? "SELECTED"
+                : "PENDING",
+          },
 
-        return {
-          id,
-          title: `Month ${i + 1}`,
-          amount: monthlyFee,
-          status: paidItems.includes(id)
-            ? "PAID"
-            : selected.includes(id)
-              ? "SELECTED"
-              : "PENDING",
-        } satisfies FeeItem;
-      },
-    ),
+          ...Array.from(
+            { length: durationMonths },
+            (_, i) => {
+              const id = `month-${i + 1}`;
 
-    {
-      id: "certificate",
-      title: "Certificate Fee",
-      amount: certificateFee,
-      status: paidItems.includes(
-        "certificate",
-      )
-        ? "PAID"
-        : selected.includes("certificate")
-          ? "SELECTED"
-          : "PENDING",
-    },
-  ];
+              return {
+                id,
+                title: `Month ${i + 1}`,
+                amount: monthlyFee,
+                status: paidItems.includes(id)
+                  ? "PAID"
+                  : selectedIds.has(id)
+                    ? "SELECTED"
+                    : "PENDING",
+              } satisfies FeeItem;
+            },
+          ),
+
+          {
+            id: "certificate",
+            title: "Certificate Fee",
+            amount: certificateFee,
+            status: paidItems.includes(
+              "certificate",
+            )
+              ? "PAID"
+              : selectedIds.has(
+                    "certificate",
+                  )
+                ? "SELECTED"
+                : "PENDING",
+          },
+        ];
 
   function toggle(id: string) {
-    if (paidItems.includes(id)) {
+    const currentItem =
+      feeItems.find(
+        (item) => item.id === id,
+      );
+
+    if (
+      paidItems.includes(id) ||
+      !currentItem ||
+      Number(currentItem.amount) <= 0
+    ) {
       return;
     }
 
-    setSelected((previous) => {
-      const next = previous.includes(id)
-        ? previous.filter(
-            (itemId) => itemId !== id,
-          )
-        : [...previous, id];
+    const nextSelected = selectedIds.has(id)
+      ? selectedItems.filter(
+          (item) => item.id !== id,
+        )
+      : [...selectedItems, currentItem];
 
-      /*
-       * Calculate the selected fee items from
-       * the current fee schedule.
-       */
-      const selectedItems = feeItems.filter(
-        (item) => next.includes(item.id),
-      );
-
-      onSelectionChange?.(selectedItems);
-
-      return next;
-    });
+    onSelectionChange?.(nextSelected);
   }
 
   return (
@@ -119,12 +152,13 @@ export default function FeeSchedule({
           key={item.id}
           title={item.title}
           amount={item.amount}
-          checked={selected.includes(
+          checked={selectedIds.has(
             item.id,
           )}
-          disabled={paidItems.includes(
-            item.id,
-          )}
+          disabled={
+            paidItems.includes(item.id) ||
+            Number(item.amount) <= 0
+          }
           status={item.status}
           onCheckedChange={() =>
             toggle(item.id)

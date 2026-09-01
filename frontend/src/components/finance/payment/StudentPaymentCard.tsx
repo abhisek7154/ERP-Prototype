@@ -35,6 +35,7 @@ interface StudentPaymentStudent {
 interface StudentPaymentCourse {
   name?: string | null;
   durationMonths?: number | null;
+  installmentCount?: number | null;
   admissionFee?: number | string | null;
   monthlyFee?: number | string | null;
   certificateFee?: number | string | null;
@@ -63,6 +64,17 @@ export interface StudentPaymentAdmission {
   student?: StudentPaymentStudent | null;
 
   course?: StudentPaymentCourse | null;
+
+  feeLedger?: Array<{
+    id: string;
+    feeScheduleId?: string | null;
+    title: string;
+    amount: number;
+    paidAmount: number;
+    dueAmount: number;
+    status: string;
+    installmentNumber?: number | null;
+  }> | null;
 
   batch?: StudentPaymentBatch | string | null;
 }

@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ZodError } from "zod";
 
 import {
   getFeePaymentsServer,
   createPaymentServer,
 } from "~/modules/finance/services";
+import {
+  INCOMPLETE_FINANCIAL_STATE_MESSAGE,
+  INVALID_PAYMENT_ITEMS_MESSAGE,
+} from "~/modules/finance/services/finance.service";
 
 import { verifyToken } from "~/modules/auth/jwt";
 async function getSchoolId(request: NextRequest) {
@@ -128,13 +133,46 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (error instanceof ZodError) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Invalid payment request.",
+        },
+        {
+          status: 400,
+        },
+      );
+    }
+
+    if (
+      error instanceof Error &&
+      [
+        "Admission not found.",
+        "Amount paid does not match selected fee items.",
+        INCOMPLETE_FINANCIAL_STATE_MESSAGE,
+        INVALID_PAYMENT_ITEMS_MESSAGE,
+      ].includes(error.message)
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: error.message,
+        },
+        {
+          status:
+            error.message ===
+              "Admission not found."
+              ? 404
+              : 409,
+        },
+      );
+    }
+
     return NextResponse.json(
       {
         success: false,
-        message:
-          error instanceof Error
-            ? error.message
-            : "Internal Server Error",
+        message: "Failed to create payment.",
       },
       {
         status: 500,

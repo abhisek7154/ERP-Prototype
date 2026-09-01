@@ -47,7 +47,7 @@ function calculateCompletionDate(
 /*                           Fee Ledger Generation                            */
 /* -------------------------------------------------------------------------- */
 
-type CourseForLedger = {
+export type CourseForLedger = {
   admissionFee: Prisma.Decimal;
   monthlyFee: Prisma.Decimal;
   certificateFee: Prisma.Decimal;
@@ -70,7 +70,7 @@ type CourseForLedger = {
  * - Monthly installments intentionally share the same FeeSchedule
  *   but have different ledger titles/installment numbers.
  */
-function buildFeeLedger(
+export function buildFeeLedger(
   admissionId: string,
   course: CourseForLedger,
   admissionDate: Date,
@@ -226,11 +226,75 @@ function buildFeeLedger(
   return ledger;
 }
 
+type LedgerIdentity = {
+  feeScheduleId:
+    | string
+    | null
+    | undefined;
+  title:
+    | string
+    | null
+    | undefined;
+  installmentNumber:
+    | number
+    | null
+    | undefined;
+};
+
+function isSameLedgerIdentity(
+  existing: LedgerIdentity,
+  expected: LedgerIdentity,
+) {
+  return (
+    existing.feeScheduleId === expected.feeScheduleId &&
+    existing.title === expected.title &&
+    existing.installmentNumber ===
+      expected.installmentNumber
+  );
+}
+
+function toLedgerIdentity(
+  entry: {
+    feeScheduleId?:
+      | string
+      | null;
+    title?:
+      | string
+      | null;
+    installmentNumber?:
+      | number
+      | null;
+  },
+): LedgerIdentity {
+  return {
+    feeScheduleId:
+      entry.feeScheduleId,
+    title: entry.title,
+    installmentNumber:
+      entry.installmentNumber,
+  };
+}
+
+export function getMissingFeeLedgerEntries(
+  existingLedger: LedgerIdentity[],
+  expectedLedger: LedgerIdentity[],
+) {
+  return expectedLedger.filter(
+    (expected) =>
+      !existingLedger.some((existing) =>
+        isSameLedgerIdentity(
+          existing,
+          expected,
+        ),
+      ),
+  );
+}
+
 /* -------------------------------------------------------------------------- */
 /*                         Create Complete Fee Ledger                         */
 /* -------------------------------------------------------------------------- */
 
-async function generateFeeLedger(
+export async function generateFeeLedger(
   tx: Prisma.TransactionClient,
   admissionId: string,
   course: CourseForLedger,
@@ -246,9 +310,42 @@ async function generateFeeLedger(
     return;
   }
 
-  await tx.feeLedger.createMany({
+  const createdLedger =
+    await tx.feeLedger.createMany({
     data: ledger,
   });
+
+  if (createdLedger.count !== ledger.length) {
+    throw new Error(
+      "Admission financial setup could not be completed.",
+    );
+  }
+
+  const persistedLedger =
+    await tx.feeLedger.findMany({
+      where: {
+        admissionId,
+      },
+      select: {
+        feeScheduleId: true,
+        title: true,
+        installmentNumber: true,
+      },
+    });
+
+  const missingLedger =
+    getMissingFeeLedgerEntries(
+      persistedLedger,
+      ledger.map(
+        toLedgerIdentity,
+      ),
+    );
+
+  if (missingLedger.length > 0) {
+    throw new Error(
+      "Admission financial setup is incomplete.",
+    );
+  }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -265,7 +362,7 @@ async function generateFeeLedger(
  *
  * Existing ledger rows are preserved, including paid amounts.
  */
-async function ensureFeeLedger(
+export async function ensureFeeLedger(
   tx: Prisma.TransactionClient,
   admissionId: string,
   course: CourseForLedger,
@@ -290,10 +387,12 @@ async function ensureFeeLedger(
   for (const expected of expectedLedger) {
     const existing = existingLedger.find(
       (entry) =>
-        entry.feeScheduleId === expected.feeScheduleId &&
-        entry.title === expected.title &&
-        entry.installmentNumber ===
-          expected.installmentNumber,
+        isSameLedgerIdentity(
+          entry,
+          toLedgerIdentity(
+            expected,
+          ),
+        ),
     );
 
     if (existing) {
@@ -336,6 +435,32 @@ async function ensureFeeLedger(
           expected.status,
       },
     });
+  }
+
+  const persistedLedger =
+    await tx.feeLedger.findMany({
+      where: {
+        admissionId,
+      },
+      select: {
+        feeScheduleId: true,
+        title: true,
+        installmentNumber: true,
+      },
+    });
+
+  const missingLedger =
+    getMissingFeeLedgerEntries(
+      persistedLedger,
+      expectedLedger.map(
+        toLedgerIdentity,
+      ),
+    );
+
+  if (missingLedger.length > 0) {
+    throw new Error(
+      "Admission financial setup is incomplete.",
+    );
   }
 }
 
@@ -780,6 +905,12 @@ export async function updateAdmission(
           },
 
           feeLedger: true,
+
+          feePayments: {
+            select: {
+              id: true,
+            },
+          },
         },
       });
 
@@ -837,6 +968,16 @@ export async function updateAdmission(
       input.admissionDate ??
       existingAdmission.admissionDate;
 
+    const hasPaymentHistory =
+      existingAdmission.feePayments.length >
+      0;
+
+    const hasPaidLedgerHistory =
+      existingAdmission.feeLedger.some(
+        (entry) =>
+          Number(entry.paidAmount ?? 0) > 0,
+      );
+
     /* -------------------------------------------------------------------- */
     /* 4. Calculate Completion Date                                         */
     /* -------------------------------------------------------------------- */
@@ -889,6 +1030,23 @@ export async function updateAdmission(
           expectedCompletionDate:
             completionDate,
 
+          ...(courseChanged
+            ? {
+                admissionFee: decimal(
+                  course.admissionFee,
+                ),
+                monthlyFee: decimal(
+                  course.monthlyFee,
+                ),
+                certificateFee: decimal(
+                  course.certificateFee,
+                ),
+                totalFee: decimal(
+                  course.totalFee,
+                ),
+              }
+            : {}),
+
           ...(input.admissionFee !== undefined
             ? {
                 admissionFee:
@@ -912,6 +1070,15 @@ export async function updateAdmission(
     /* -------------------------------------------------------------------- */
 
     if (courseChanged) {
+      if (
+        hasPaymentHistory ||
+        hasPaidLedgerHistory
+      ) {
+        throw new Error(
+          "Cannot change course for an admission with payment history.",
+        );
+      }
+
       /*
        * Course changed.
        *

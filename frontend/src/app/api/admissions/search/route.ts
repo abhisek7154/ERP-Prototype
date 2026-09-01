@@ -110,6 +110,23 @@ export async function GET(req: NextRequest) {
           },
         },
 
+        feeLedger: {
+          orderBy: {
+            installmentNumber: "asc",
+          },
+
+          select: {
+            id: true,
+            feeScheduleId: true,
+            title: true,
+            amount: true,
+            paidAmount: true,
+            dueAmount: true,
+            status: true,
+            installmentNumber: true,
+          },
+        },
+
         // -----------------------------------------
         // Batch + Teacher
         // -----------------------------------------
@@ -226,6 +243,26 @@ export async function GET(req: NextRequest) {
       })
     ),
 },
+
+      feeLedger:
+        admission.feeLedger.map(
+          (ledger) => ({
+            id: ledger.id,
+            feeScheduleId:
+              ledger.feeScheduleId,
+            title: ledger.title,
+            amount: Number(ledger.amount),
+            paidAmount: Number(
+              ledger.paidAmount,
+            ),
+            dueAmount: Number(
+              ledger.dueAmount,
+            ),
+            status: ledger.status,
+            installmentNumber:
+              ledger.installmentNumber,
+          })
+        ),
 
       // -----------------------------------------
       // Batch

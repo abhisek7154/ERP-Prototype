@@ -7,13 +7,15 @@ export interface FeeSchedule {
   isActive: boolean;
 }
 
-export interface FeeSchedule {
+export interface FeeLedgerItem {
   id: string;
+  feeScheduleId?: string | null;
   title: string;
   amount: number;
-  dueOrder: number;
-  isMandatory: boolean;
-  isActive: boolean;
+  paidAmount: number;
+  dueAmount: number;
+  status: string;
+  installmentNumber?: number | null;
 }
 
 export interface AdmissionSearchResult {
@@ -41,6 +43,8 @@ export interface AdmissionSearchResult {
 
     feeSchedules: FeeSchedule[];
   };
+
+  feeLedger: FeeLedgerItem[];
 
   batch: {
     id: string;

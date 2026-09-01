@@ -8,6 +8,9 @@ import type {
   UpdateFeePaymentInput,
 } from "../finance.schema";
 
+const INCOMPLETE_FINANCIAL_STATE_MESSAGE =
+  "Admission financial state is incomplete. Please repair the fee ledger before collecting payment.";
+
 /* -------------------------------------------------------------------------- */
 /*                               Query Payments                               */
 /* -------------------------------------------------------------------------- */
@@ -206,7 +209,7 @@ export async function createFeePayment(
 
       if (!ledger) {
         throw new Error(
-          `Fee ledger entry not found for "${item.title}".`,
+          INCOMPLETE_FINANCIAL_STATE_MESSAGE,
         );
       }
 
