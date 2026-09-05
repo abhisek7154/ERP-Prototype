@@ -27,6 +27,11 @@ export function BatchDialog({ courseId, batch }: BatchDialogProps) {
   const [message, setMessage] = useState("");
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [teachersLoading, setTeachersLoading] = useState(false);
+  const [teacherId, setTeacherId] = useState(batch?.teacherId ?? "");
+
+  useEffect(() => {
+    setTeacherId(batch?.teacherId ?? "");
+  }, [batch?.teacherId, open]);
 
   useEffect(() => {
     if (!open) return;
@@ -56,7 +61,7 @@ export function BatchDialog({ courseId, batch }: BatchDialogProps) {
       body: JSON.stringify({
         courseId,
         id: batch?.id,
-        teacherId: form.get("teacherId") || null,
+        teacherId: teacherId || null,
         name: form.get("name"),
         shift: form.get("shift"),
         startTime: form.get("startTime"),
@@ -83,7 +88,13 @@ export function BatchDialog({ courseId, batch }: BatchDialogProps) {
       <input required name="name" defaultValue={batch?.name ?? ""} placeholder="Batch name" className="w-full rounded-md border px-2 py-1.5" />
       <label className="block space-y-1">
         <span>Teacher</span>
-        <select name="teacherId" defaultValue={batch?.teacherId ?? ""} disabled={teachersLoading} className="w-full rounded-md border px-2 py-1.5">
+        <select
+          name="teacherId"
+          value={teacherId}
+          onChange={(event) => setTeacherId(event.target.value)}
+          disabled={teachersLoading}
+          className="w-full rounded-md border px-2 py-1.5"
+        >
           <option value="">{teachersLoading ? "Loading teachers..." : teachers.length === 0 ? "No teachers registered. Please register a teacher first." : "No teacher selected"}</option>
           {teachers.map((teacher) => <option key={teacher.id} value={teacher.id}>{teacher.name}{teacher.role ? ` - ${teacher.role}` : " - Teacher"}</option>)}
         </select>

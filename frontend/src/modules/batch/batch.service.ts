@@ -160,64 +160,70 @@ export async function createBatch(
 ) {
   return prisma.$transaction(
     async (tx) => {
-    const teacher = await tx.teacher.findFirst({
-  where: {
-    id: data.teacherId,
-    schoolId,
-  },
-});
+      const teacherId = data.teacherId ?? null;
 
-    if (!teacher) {
-      throw new Error("Teacher not found.");
-    }
+      if (teacherId) {
+        const teacher = await tx.teacher.findFirst({
+          where: {
+            id: teacherId,
+            schoolId,
+          },
+        });
 
-    const course = await tx.course.findFirst({
-      where: {
-        id: data.courseId,
-        schoolId,
-        isActive: true,
-      },
+        if (!teacher) {
+          throw new Error("Teacher not found.");
+        }
+      }
+
+      const course = await tx.course.findFirst({
+        where: {
+          id: data.courseId,
+          schoolId,
+          isActive: true,
+        },
+      });
+
+      if (!course) {
+        throw new Error("Course not found.");
+      }
+
+      const duplicate = teacherId
+        ? await tx.batch.findFirst({
+            where: {
+              schoolId,
+              teacherId,
+              shift: data.shift,
+              startTime: data.startTime,
+              endTime: data.endTime,
+              isActive: true,
+            },
+          })
+        : null;
+
+      if (duplicate) {
+        throw new Error(
+          "Teacher already has a batch during this time."
+        );
+      }
+
+      return tx.batch.create({
+        data: {
+          schoolId,
+          teacherId,
+          courseId: data.courseId,
+          name: data.name,
+          shift: data.shift,
+          startTime: data.startTime,
+          endTime: data.endTime,
+          capacity: data.capacity,
+          status: data.status,
+        },
+        include: {
+          teacher: true,
+          course: true,
+        },
+      });
     });
-
-    if (!course) {
-      throw new Error("Course not found.");
-    }
-
-    const duplicate = await tx.batch.findFirst({
-      where: {
-        schoolId,
-        teacherId: data.teacherId,
-        shift: data.shift,
-        startTime: data.startTime,
-        endTime: data.endTime,
-        isActive: true,
-      },
-    });
-
-    if (duplicate) {
-      throw new Error(
-        "Teacher already has a batch during this time."
-      );
-    }
-
-    return tx.batch.create({
-      data: {
-        schoolId,
-        teacherId: data.teacherId,
-        courseId: data.courseId,
-        name: data.name,
-        shift: data.shift,
-        startTime: data.startTime,
-        endTime: data.endTime,
-        capacity: data.capacity,
-        status: data.status,
-      },
-      include: {
-        teacher: true,
-        course: true,
-      },
-    });
-  });
 }
 export async function updateBatch(
   id: string,
@@ -236,13 +242,16 @@ export async function updateBatch(
       throw new Error("Batch not found.");
     }
 
-    if (data.teacherId) {
+    const nextTeacherId = data.teacherId === undefined ? batch.teacherId : data.teacherId;
+
+    if (nextTeacherId) {
       const teacher = await tx.teacher.findFirst({
-  where: {
-    id: data.teacherId,
-    schoolId,
-  },
-});
+        where: {
+          id: nextTeacherId,
+          schoolId,
+        },
+      });
+
       if (!teacher) {
         throw new Error("Teacher not found.");
       }
@@ -262,24 +271,25 @@ export async function updateBatch(
       }
     }
 
-    const teacherId = data.teacherId ?? batch.teacherId;
     const shift = data.shift ?? batch.shift;
     const startTime = data.startTime ?? batch.startTime;
     const endTime = data.endTime ?? batch.endTime;
 
-    const duplicate = await tx.batch.findFirst({
-      where: {
-        id: {
-          not: id,
-        },
-        schoolId,
-        teacherId,
-        shift,
-        startTime,
-        endTime,
-        isActive: true,
-      },
-    });
+    const duplicate = nextTeacherId
+      ? await tx.batch.findFirst({
+          where: {
+            id: {
+              not: id,
+            },
+            schoolId,
+            teacherId: nextTeacherId,
+            shift,
+            startTime,
+            endTime,
+            isActive: true,
+          },
+        })
+      : null;
 
     if (duplicate) {
       throw new Error(
@@ -287,12 +297,12 @@ export async function updateBatch(
       );
     }
 
-     return tx.batch.update({
+    return tx.batch.update({
       where: {
         id,
       },
       data: {
-        teacherId: data.teacherId,
+        teacherId: data.teacherId ?? null,
         courseId: data.courseId,
         name: data.name,
         shift: data.shift,
@@ -310,7 +320,7 @@ export async function updateBatch(
   {
     maxWait: 10000,
     timeout: 20000,
-  } );
+  });
 }
 export async function deleteBatch(id: string) {
   return prisma.$transaction(async (tx) => {

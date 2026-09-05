@@ -4,7 +4,7 @@ import { z } from "zod";
 export const createBatchSchema = z.object({
   courseId: z.string().uuid("Invalid course."),
 
-  teacherId: z.string().uuid("Invalid teacher."),
+  teacherId: z.string().uuid("Invalid teacher.").nullable().optional(),
 
   name: z
     .string()

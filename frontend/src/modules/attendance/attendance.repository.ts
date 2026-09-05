@@ -178,15 +178,48 @@ export async function getDashboardSummary(schoolId: string) {
 export async function markAttendance(schoolId: string, markedById: string, data: MarkAttendanceInput) {
 	const date = data.date ? new Date(data.date) : new Date();
 	date.setHours(0, 0, 0, 0);
+
+	if (!data.courseId || !data.batchId || !data.sectionType) throw new Error("Course, batch, and attendance section are required.");
+
+	const batch = await prisma.batch.findFirst({
+		where: { id: data.batchId, schoolId, courseId: data.courseId },
+		select: { id: true },
+	});
+
+	if (!batch) throw new Error("The selected batch does not belong to this course.");
+
+	const validStudentIds = new Set(
+		(
+			await prisma.admission.findMany({
+				where: { schoolId, courseId: data.courseId, batchId: data.batchId, isActive: true },
+				select: { studentId: true },
+			})
+		).map((admission) => admission.studentId),
+	);
+
+	for (const record of data.records) {
+		if (!validStudentIds.has(record.studentId)) {
+			throw new Error("Student does not belong to the selected batch.");
+		}
+	}
+
+	const existingRecords = await prisma.attendanceRecord.findMany({
+		where: {
+			schoolId,
+			courseId: data.courseId,
+			batchId: data.batchId,
+			sectionType: data.sectionType,
+			date,
+			studentId: { in: data.records.map((record) => record.studentId) },
+		},
+		select: { id: true, studentId: true },
+	});
+	const existingByStudent = new Map(existingRecords.map((record) => [record.studentId, record]));
+
 	return prisma.$transaction(async (tx) => {
-		if (!data.courseId || !data.batchId || !data.sectionType) throw new Error("Course, batch, and attendance section are required.");
-		const batch = await tx.batch.findFirst({ where: { id: data.batchId, schoolId, courseId: data.courseId } });
-		if (!batch) throw new Error("The selected batch does not belong to this course.");
 		const results = [];
 		for (const record of data.records) {
-			const admission = await tx.admission.findFirst({ where: { schoolId, studentId: record.studentId, courseId: data.courseId, batchId: data.batchId, isActive: true } });
-			if (!admission) throw new Error("Student does not belong to the selected batch.");
-			const existing = await tx.attendanceRecord.findFirst({ where: { schoolId, studentId: record.studentId, courseId: data.courseId, batchId: data.batchId, sectionType: data.sectionType, date } });
+			const existing = existingByStudent.get(record.studentId) ?? null;
 			if (existing) {
 				results.push(await tx.attendanceRecord.update({ where: { id: existing.id }, data: { status: record.status, remarks: record.remarks ?? null, markedById, source: data.source } }));
 			} else {

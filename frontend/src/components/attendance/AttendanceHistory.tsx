@@ -20,6 +20,8 @@ export interface AttendanceHistoryRecord {
     | "CLASS"
     | "CAMPUS_SCAN";
 
+  sectionType?: "THEORY" | "PRACTICAL" | null;
+
   courseName?: string | null;
 
   batchName?: string | null;
@@ -110,6 +112,7 @@ export function AttendanceHistory({
                   <td className="px-4 py-3">
                     <SourceBadge
                       source={record.source}
+                      sectionType={record.sectionType}
                     />
                   </td>
 
@@ -135,39 +138,30 @@ export function AttendanceHistory({
 
 function SourceBadge({
   source,
+  sectionType,
 }: {
   source:
     | "MANUAL"
     | "CLASS"
     | "CAMPUS_SCAN";
+  sectionType?: "THEORY" | "PRACTICAL" | null;
 }) {
-  const config = {
-    MANUAL: {
-      label: "Manual",
-      className:
-        "bg-gray-100 text-gray-700",
-    },
-
-    CLASS: {
-      label: "Class",
-      className:
-        "bg-blue-50 text-blue-700",
-    },
-
-    CAMPUS_SCAN: {
-      label: "Campus Scan",
-      className:
-        "bg-emerald-50 text-emerald-700",
-    },
-  } as const;
-
-  const item = config[source];
+  const value =
+    sectionType === "THEORY"
+      ? { label: "Theory", className: "bg-blue-50 text-blue-700" }
+      : sectionType === "PRACTICAL"
+        ? { label: "Practical", className: "bg-violet-50 text-violet-700" }
+        : source === "MANUAL"
+          ? { label: "Manual", className: "bg-gray-100 text-gray-700" }
+          : source === "CAMPUS_SCAN"
+            ? { label: "Campus Scan", className: "bg-emerald-50 text-emerald-700" }
+            : { label: "Class", className: "bg-blue-50 text-blue-700" };
 
   return (
     <span
-      className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${item.className}`}
+      className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${value.className}`}
     >
-      {item.label}
+      {value.label}
     </span>
   );
 }
