@@ -1,124 +1,182 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ZodError } from "zod";
 
 import {
-  financeQuerySchema,
-  createFeePaymentSchema,
-} from "~/modules/finance";
-
+  getFeePaymentsServer,
+  createPaymentServer,
+} from "~/modules/finance/services";
 import {
-  getFeePayments,
-  createFeePayment,
-} from "~/modules/finance/server";
+  INCOMPLETE_FINANCIAL_STATE_MESSAGE,
+  INVALID_PAYMENT_ITEMS_MESSAGE,
+} from "~/modules/finance/services/finance.service";
 
 import { verifyToken } from "~/modules/auth/jwt";
+async function getSchoolId(request: NextRequest) {
+  const token = request.cookies.get("auth-token")?.value;
+
+  if (!token) {
+    throw new Error("Unauthorized");
+  }
+
+  const payload = await verifyToken(token);
+
+  if (!payload) {
+    throw new Error("Unauthorized");
+  }
+
+  return payload.schoolId;
+}
+// ----------------------------------------
+// GET /api/finance
+// ----------------------------------------
 
 export async function GET(request: NextRequest) {
   try {
-    const token = request.cookies.get("auth-token")?.value;
+    const schoolId = await getSchoolId(request);
 
-    if (!token) {
+    const searchParams = request.nextUrl.searchParams;
+
+    const query = {
+      page: Number(searchParams.get("page") ?? "1"),
+      limit: Number(searchParams.get("limit") ?? "10"),
+
+      search: searchParams.get("search") ?? undefined,
+
+      status: searchParams.get("status") ?? undefined,
+
+      paymentMethod:
+        searchParams.get("paymentMethod") ?? undefined,
+
+      from: searchParams.get("from") ?? undefined,
+
+      to: searchParams.get("to") ?? undefined,
+    };
+
+    const payments = await getFeePaymentsServer(
+      schoolId,
+      query,
+    );
+
+    return NextResponse.json({
+      success: true,
+      data: payments,
+    });
+  } catch (error) {
+    console.error(error);
+
+    if (
+      error instanceof Error &&
+      error.message === "Unauthorized"
+    ) {
       return NextResponse.json(
         {
           success: false,
           message: "Unauthorized",
         },
-        { status: 401 }
-      );
-    }
-
-    const payload = await verifyToken(token);
-
-    if (!payload) {
-      return NextResponse.json(
         {
-          success: false,
-          message: "Invalid token",
+          status: 401,
         },
-        { status: 401 }
       );
     }
-
-    const params = Object.fromEntries(
-      request.nextUrl.searchParams.entries()
-    );
-
-    const query = financeQuerySchema.parse(params);
-
-    const result = await getFeePayments(
-      payload.schoolId,
-      query
-    );
-
-    return NextResponse.json({
-      success: true,
-      message: "Fee payments fetched successfully.",
-      ...result,
-    });
-  } catch (error) {
-    console.error("Finance GET Error:", error);
 
     return NextResponse.json(
       {
         success: false,
         message: "Internal Server Error",
       },
-      { status: 500 }
+      {
+        status: 500,
+      },
     );
   }
 }
+// ----------------------------------------
+// POST /api/finance
+// ----------------------------------------
 
 export async function POST(request: NextRequest) {
   try {
-    const token = request.cookies.get("auth-token")?.value;
+    const schoolId = await getSchoolId(request);
 
-    if (!token) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Unauthorized",
-        },
-        { status: 401 }
-      );
-    }
+    const body = await request.json();
 
-    const payload = await verifyToken(token);
-
-    if (!payload) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Invalid token",
-        },
-        { status: 401 }
-      );
-    }
-
-    const body = createFeePaymentSchema.parse(
-      await request.json()
-    );
-
-    const payment = await createFeePayment(
-      payload.schoolId,
-      body
+    const payment = await createPaymentServer(
+      schoolId,
+      body,
     );
 
     return NextResponse.json(
       {
         success: true,
-        message: "Fee payment created successfully.",
+        message: "Payment created successfully.",
         data: payment,
       },
-      { status: 201 }
+      {
+        status: 201,
+      },
     );
   } catch (error) {
-    console.error("Finance POST Error:", error);
+    console.error(error);
+
+    if (
+      error instanceof Error &&
+      error.message === "Unauthorized"
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Unauthorized",
+        },
+        {
+          status: 401,
+        },
+      );
+    }
+
+    if (error instanceof ZodError) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Invalid payment request.",
+        },
+        {
+          status: 400,
+        },
+      );
+    }
+
+    if (
+      error instanceof Error &&
+      [
+        "Admission not found.",
+        "Amount paid does not match selected fee items.",
+        INCOMPLETE_FINANCIAL_STATE_MESSAGE,
+        INVALID_PAYMENT_ITEMS_MESSAGE,
+      ].includes(error.message)
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: error.message,
+        },
+        {
+          status:
+            error.message ===
+              "Admission not found."
+              ? 404
+              : 409,
+        },
+      );
+    }
 
     return NextResponse.json(
       {
         success: false,
-        message: "Internal Server Error",
+        message: "Failed to create payment.",
       },
-      { status: 500 }
+      {
+        status: 500,
+      },
     );
   }
 }
