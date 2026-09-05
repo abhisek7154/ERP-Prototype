@@ -302,5 +302,6 @@ flowchart LR
     MODULES --> VALIDATION[Zod validation and business rules]
     MODULES --> PRISMA[Prisma client]
     PRISMA --> DB[(PostgreSQL)]
-    MODULES --> EXT[Ollama | Resend | local storage]
+    MODULES --> EXT[Ollama, Resend, local storage]
 ```
+
