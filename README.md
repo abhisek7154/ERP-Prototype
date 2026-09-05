@@ -1,1407 +1,591 @@
-<img width="1355" height="828" alt="Screenshot 2026-07-06 184727" src="https://github.com/user-attachments/assets/cce138d1-c8e4-4280-8a77-f6f2614ed122" />
-
-# School ERP MVP Architecture
-
-This document describes the current target architecture of the School ERP after removing unnecessary frontend modules and choosing a full-stack Next.js architecture.
-
-The application uses:
-
-- Next.js App Router
-- React
-- TypeScript
-- Prisma ORM
-- PostgreSQL
-- TanStack Query
-- Tailwind CSS
-- shadcn/ui-style reusable UI components
-- Zod for validation
-- ExcelJS for Excel file processing
-
----
-
-# 1. System Architecture
-
-```text
-Browser
-   │
-   ▼
-Next.js Application
-   │
-   ├── Server Components
-   │       │
-   │       ▼
-   │     Prisma
-   │       │
-   │       ▼
-   │   PostgreSQL
-   │
-   ├── Client Components
-   │       │
-   │       ▼
-   │   Server Actions
-   │   Route Handlers
-   │       │
-   │       ▼
-   │     Prisma
-   │       │
-   │       ▼
-   │   PostgreSQL
-   │
-   └── Excel Import
-           │
-           ▼
-       Route Handler
-           │
-           ▼
-       Excel Parser
-           │
-           ▼
-         Mapper
-           │
-           ▼
-        Validator
-           │
-           ▼
-      Import Service
-           │
-           ▼
-         Prisma
-           │
-           ▼
-       PostgreSQL
-```
-
-Client Components must never access Prisma directly.
-
----
-
-# 2. Project Structure
-
-```text
-school-erp/
-│
-├── frontend/
-│
-│   ├── prisma/
-│   │   ├── schema.prisma
-│   │   └── migrations/
-│   │
-│   ├── src/
-│   │
-│   │   ├── app/
-│   │   │
-│   │   │   ├── layout.tsx
-│   │   │   ├── page.tsx
-│   │   │   ├── globals.css
-│   │   │
-│   │   │   ├── (auth)/
-│   │   │   │
-│   │   │   │   ├── login/
-│   │   │   │   │   └── page.tsx
-│   │   │   │   │
-│   │   │   │   └── signup/
-│   │   │   │       └── page.tsx
-│   │   │
-│   │   │   ├── (dashboard)/
-│   │   │   │
-│   │   │   │   ├── layout.tsx
-│   │   │   │
-│   │   │   │   ├── _components/
-│   │   │   │   │   ├── app-sidebar.tsx
-│   │   │   │   │   ├── nav-main.tsx
-│   │   │   │   │   ├── nav-secondary.tsx
-│   │   │   │   │   ├── sidebar-nav.tsx
-│   │   │   │   │   ├── user-button.tsx
-│   │   │   │   │   └── theme-segment-control.tsx
-│   │   │   │
-│   │   │   │   └── dashboard/
-│   │   │   │       │
-│   │   │   │       ├── page.tsx
-│   │   │   │       │
-│   │   │   │       ├── overview/
-│   │   │   │       │   └── page.tsx
-│   │   │   │       │
-│   │   │   │       ├── reports/
-│   │   │   │       │   └── page.tsx
-│   │   │   │       │
-│   │   │   │       ├── academics/
-│   │   │   │       │   │
-│   │   │   │       │   ├── classes/
-│   │   │   │       │   │   └── page.tsx
-│   │   │   │       │   │
-│   │   │   │       │   └── attendance/
-│   │   │   │       │       └── page.tsx
-│   │   │   │       │
-│   │   │   │       ├── people/
-│   │   │   │       │   │
-│   │   │   │       │   └── students/
-│   │   │   │       │       └── page.tsx
-│   │   │   │       │
-│   │   │   │       ├── operations/
-│   │   │   │       │   │
-│   │   │   │       │   └── finance/
-│   │   │   │       │       └── page.tsx
-│   │   │   │       │
-│   │   │   │       ├── admin/
-│   │   │   │       │   │
-│   │   │   │       │   └── users-access/
-│   │   │   │       │       │
-│   │   │   │       │       └── users/
-│   │   │   │       │           └── page.tsx
-│   │   │   │       │
-│   │   │   │       ├── imports/
-│   │   │   │       │   │
-│   │   │   │       │   └── students/
-│   │   │   │       │       │
-│   │   │   │       │       ├── page.tsx
-│   │   │   │       │       │
-│   │   │   │       │       └── _components/
-│   │   │   │       │           ├── ExcelUpload.tsx
-│   │   │   │       │           ├── ImportPreview.tsx
-│   │   │   │       │           ├── ImportSummary.tsx
-│   │   │   │       │           └── ImportErrorTable.tsx
-│   │   │   │       │
-│   │   │   │       └── settings/
-│   │   │   │           └── page.tsx
-│   │   │   │
-│   │   │   └── api/
-│   │   │       │
-│   │   │       └── imports/
-│   │   │           │
-│   │   │           └── students/
-│   │   │               │
-│   │   │               ├── preview/
-│   │   │               │   └── route.ts
-│   │   │               │
-│   │   │               └── execute/
-│   │   │                   └── route.ts
-│   │   │
-│   │   ├── components/
-│   │   │   │
-│   │   │   └── ui/
-│   │   │       ├── button.tsx
-│   │   │       ├── card.tsx
-│   │   │       ├── dialog.tsx
-│   │   │       ├── table.tsx
-│   │   │       ├── input.tsx
-│   │   │       ├── select.tsx
-│   │   │       ├── avatar.tsx
-│   │   │       ├── dropdown-menu.tsx
-│   │   │       ├── sidebar.tsx
-│   │   │       └── ...
-│   │   │
-│   │   ├── lib/
-│   │   │   ├── prisma.ts
-│   │   │   └── utils.ts
-│   │   │
-│   │   ├── modules/
-│   │   │   │
-│   │   │   ├── auth/
-│   │   │   ├── student/
-│   │   │   ├── class/
-│   │   │   ├── attendance/
-│   │   │   ├── fee/
-│   │   │   ├── report/
-│   │   │   ├── user/
-│   │   │   │
-│   │   │   └── import/
-│   │   │       │
-│   │   │       ├── shared/
-│   │   │       │   ├── excel.parser.ts
-│   │   │       │   ├── excel-date.parser.ts
-│   │   │       │   ├── excel-value.parser.ts
-│   │   │       │   ├── import.types.ts
-│   │   │       │   └── import-error.ts
-│   │   │       │
-│   │   │       └── students/
-│   │   │           ├── student-import.schema.ts
-│   │   │           ├── student-import.mapper.ts
-│   │   │           ├── student-import.validator.ts
-│   │   │           ├── student-import.service.ts
-│   │   │           └── student-import.types.ts
-│   │   │
-│   │   ├── providers/
-│   │   ├── hooks/
-│   │   ├── config/
-│   │   ├── stores/
-│   │   └── types/
-│   │
-│   ├── public/
-│   ├── .env
-│   ├── prisma.config.ts
-│   ├── package.json
-│   └── tsconfig.json
-│
-└── doc/
-    └── mvp-architecture.md
-```
-
----
-
-# 3. Dashboard Menu
-
-The authoritative sidebar configuration is:
-
-```text
-frontend/src/app/(dashboard)/_components/sidebar-nav.tsx
-```
-
-Current MVP navigation:
-
-```text
-Dashboard
-├── Overview
-└── Reports
-
-Academics
-├── Classes / Sections
-└── Attendance
-
-People
-└── Students
-
-Operations
-└── Finance
-
-Administration
-└── Users & Access
-
-Secondary Navigation
-├── Profile
-└── Settings
-```
-
----
-
-# 4. Navigation Mapping
-
-| Sidebar Item | URL | Next.js Route |
-|---|---|---|
-| Dashboard | `/dashboard` | `dashboard/page.tsx` |
-| Overview | `/dashboard/overview` | `dashboard/overview/page.tsx` |
-| Reports | `/dashboard/reports` | `dashboard/reports/page.tsx` |
-| Classes / Sections | `/dashboard/academics/classes` | `dashboard/academics/classes/page.tsx` |
-| Attendance | `/dashboard/academics/attendance` | `dashboard/academics/attendance/page.tsx` |
-| Students | `/dashboard/people/students` | `dashboard/people/students/page.tsx` |
-| Finance | `/dashboard/operations/finance` | `dashboard/operations/finance/page.tsx` |
-| Users & Access | `/dashboard/admin/users-access/users` | `dashboard/admin/users-access/users/page.tsx` |
-| Student Import | `/dashboard/imports/students` | `dashboard/imports/students/page.tsx` |
-| Settings | `/dashboard/settings` | `dashboard/settings/page.tsx` |
-
-The `[...slug]` catch-all placeholder route has been removed.
-
-Every active sidebar URL must now have a real `page.tsx`.
-
----
-
-# 5. Layer Responsibilities
-
-## 5.1 App Layer
-
-Location:
-
-```text
-src/app/
-```
-
-Responsible for:
-
-- Routing
-- Layouts
-- Pages
-- Server Components
-- Route Handlers
-- Server Actions
-- Page composition
-
-Pages should remain thin.
-
-Pages should delegate business logic to feature modules.
-
-```text
-page.tsx
-    │
-    ▼
-Feature Component
-    │
-    ▼
-Feature Module
-```
-
----
-
-## 5.2 UI Component Layer
-
-Location:
-
-```text
-src/components/ui/
-```
-
-Contains reusable presentation primitives.
-
-Examples:
-
-```text
-Button
-Card
-Dialog
-Table
-Input
-Select
-Avatar
-DropdownMenu
-Sidebar
-```
-
-UI primitives must not contain School ERP business logic.
-
-UI primitives must not access Prisma.
-
-UI primitives must not access PostgreSQL.
-
----
-
-## 5.3 Feature Module Layer
-
-Location:
-
-```text
-src/modules/
-```
-
-Contains application features and business logic.
-
-```text
-modules/
-
-├── auth/
-├── student/
-├── class/
-├── attendance/
-├── fee/
-├── report/
-├── user/
-└── import/
-```
-
-A feature module may contain:
-
-```text
-student/
-
-├── components/
-├── schemas/
-├── services/
-├── queries/
-├── actions/
-├── types/
-└── utils/
-```
-
-Not every module needs every folder.
-
-Folders should only be created when required.
-
----
-
-# 6. Database Architecture
-
-```text
-Next.js Server Code
-        │
-        ▼
-      Prisma
-        │
-        ▼
-   PostgreSQL
-```
-
-Prisma schema location:
-
-```text
-prisma/schema.prisma
-```
-
-Prisma singleton location:
-
-```text
-src/lib/prisma.ts
-```
-
-Only server-side code may import Prisma.
-
-Allowed:
-
-```text
-Server Components
-Server Actions
-Route Handlers
-Server-only Services
-Import Services
-```
-
-Not allowed:
-
-```text
-Client Components → Prisma
-
-Browser → Prisma
-
-React Hooks → Prisma
-```
-
----
-
-# 7. Student Feature Architecture
-
-```text
-/dashboard/people/students
-            │
-            ▼
-         page.tsx
-            │
-            ▼
-       Student Module
-            │
-      ┌─────┼─────┐
-      │     │     │
-      ▼     ▼     ▼
-
-   Queries Actions Schemas
-
-      │     │     │
-      └─────┼─────┘
-            │
-            ▼
-          Prisma
-            │
-            ▼
-       PostgreSQL
-```
-
-Student feature responsibilities:
-
-```text
-List Students
-
-Create Student
-
-View Student
-
-Update Student
-
-Archive Student
-```
-
-Students should be archived instead of physically deleted when historical records must be preserved.
-
-Example:
-
-```text
-Student
-   │
-   ├── ACTIVE
-   │
-   └── ARCHIVED
-```
-
-Archived students remain in PostgreSQL.
-
----
-
-# 8. Classes / Sections Architecture
-
-```text
-/dashboard/academics/classes
-              │
-              ▼
-           page.tsx
-              │
-              ▼
-          Class Module
-              │
-        ┌─────┼─────┐
-        │     │     │
-        ▼     ▼     ▼
-
-     Queries Actions Schemas
-
-        │     │     │
-        └─────┼─────┘
-              │
-              ▼
-            Prisma
-              │
-              ▼
-         PostgreSQL
-```
-
-Classes and sections provide academic structure for students.
-
-Example:
-
-```text
-Academic Year
-      │
-      ▼
-    Class
-      │
-      ▼
-   Section
-      │
-      ▼
-   Students
-```
-
----
-
-# 9. Excel Import Architecture
-
-```text
-/dashboard/imports/students
-              │
-              ▼
-        Excel Upload UI
-              │
-              ▼
-POST /api/imports/students/preview
-              │
-              ▼
-         Excel Parser
-              │
-              ▼
-      Student Row Mapper
-              │
-              ▼
-        Zod Validation
-              │
-       ┌──────┴──────┐
-       │             │
-       ▼             ▼
-
- Invalid Rows     Valid Rows
-
-       │             │
-       ▼             ▼
-
- Error Preview    Data Preview
-
-                         │
-                         ▼
-                  Confirm Import
-                         │
-                         ▼
-POST /api/imports/students/execute
-                         │
-                         ▼
-                StudentImportService
-                         │
-                         ▼
-                 Prisma Transaction
-                         │
-              ┌──────────┼──────────┐
-              │          │          │
-              ▼          ▼          ▼
-
-           Student    Receipt    ImportJob
-
-              │          │          │
-              └──────────┼──────────┘
-                         │
-                         ▼
-                     PostgreSQL
-```
-
-Import module:
-
-```text
-modules/import/
+ERP Prototype --- Finance & ERP Changes
 
+Overview
+
+This branch contains the current School ERP development work, with the
+main focus on the Finance/Payments module and supporting work across
+Students, Courses, Admissions, Dashboard, Excel imports, AI header
+matching, fees, batches, attendance, teachers, exams, notices,
+documents, storage, and UI cleanup.
+
+Branch: feature/finance
+
+Major Changes
+
+Finance & Payments
+
+Added/reworked the Finance architecture around:
+
+Finance API routes
+
+Finance services
+
+Payment creation/update/delete flows
+
+Payment history
+
+Payment details
+
+Finance dashboard data
+
+Payment summaries
+
+Finance dialogs
+
+Payment hooks
+
+New/updated areas include:
+
+src/app/api/finance/
+src/app/(dashboard)/dashboard/operations/finance/
+src/components/finance/
+src/modules/finance/services/
+src/hooks/useFinance.ts
+src/hooks/useFinanceActions.ts
+src/hooks/useFinanceDashboard.ts
+src/hooks/useFinanceDialogs.ts
+src/hooks/useFinanceSummary.ts
+src/hooks/use-payment-history.ts
+
+The older src/components/ui/finance/ implementation and older
+src/modules/finance/ service files were removed as part of the newer
+architecture.
+
+Recent Payments
+
+src/components/dashboard/RecentPayments.tsx was connected to the real
+Finance API instead of static/demo data.
+
+It now supports:
+
+Latest payments
+
+Student name
+
+Course name
+
+Amount
+
+Payment date
+
+Payment status
+
+Student initials
+
+Loading state
+
+Empty state
+
+Error state
+
+Payment-detail navigation
+
+View All navigation
+
+The component consumes the Finance endpoint:
+
+/api/finance
+
+Course Management
+
+Added Course Master functionality:
+
+src/app/(dashboard)/dashboard/course/
+src/components/course/
+src/modules/courses/
+
+Course data supports:
+
+Code
+
+Name
+
+Duration
+
+Admission fee
+
+Monthly fee
+
+Installments
+
+Discount
+
+Total fee
+
+Active status
+
+Course deletion, services, schemas, dialogs, forms, and tables were
+added.
+
+Registration Number Generation
+
+Added:
+
+src/lib/generate-registration-number.ts
+
+Registration numbers are generated using the school and current year
+with a sequential six-digit suffix.
+
+Example format:
+
+CICA26000001
+
+Student Management
+
+Updated:
+
+src/app/(dashboard)/dashboard/people/students/
+src/components/students/
+src/modules/student/
+
+Improvements cover:
+
+Student listing
+
+Student details
+
+Add student
+
+Search
+
+Student table
+
+Student service/schema/types
+
+Excel import integration
+
+Excel Student Import
+
+Added a structured import system:
+
+src/modules/import/
+├── ai/
+├── engine/
+├── memory/
 ├── shared/
-│   ├── excel.parser.ts
-│   ├── excel-date.parser.ts
-│   ├── excel-value.parser.ts
-│   ├── import.types.ts
-│   └── import-error.ts
-│
 └── students/
-    ├── student-import.schema.ts
-    ├── student-import.mapper.ts
-    ├── student-import.validator.ts
-    ├── student-import.service.ts
-    └── student-import.types.ts
-```
 
----
+The import pipeline covers:
 
-# 10. Excel Import Responsibilities
+Excel
+→ Parser
+→ Header Normalizer
+→ Memory
+→ Ollama AI
+→ Confidence
+→ Mapping
+→ Validation
+→ Student Import
+→ Prisma
 
-## Excel Parser
+Ollama AI Header Matching
 
-Responsible only for reading the Excel file.
+The import system now uses Ollama for intelligent Excel-header mapping.
 
-```text
-Excel File
-    │
-    ▼
-ExcelJS
-    │
-    ▼
-Raw JavaScript Objects
-```
+Environment:
 
-The Excel parser must not access Prisma.
+OLLAMA_URL=http://localhost:11434
+OLLAMA_MODEL=qwen3:8b
 
-The Excel parser must not access PostgreSQL.
+AI components:
 
----
+src/modules/import/ai/
+├── confidence.ts
+├── index.ts
+├── matcher.ts
+├── ollama.client.ts
+├── parser.ts
+├── prompt.ts
+└── types.ts
 
-## Student Import Mapper
+The AI returns structured JSON containing:
 
-Responsible for converting Excel columns into application fields.
+ERP field
 
-```text
-Reg.No
-    │
-    ▼
-regNo
+Confidence
 
-Name of Students
-    │
-    ▼
-name
+Reasoning
 
-Father's Name
-    │
-    ▼
-fatherName
+Confidence handling:
 
-Course
-    │
-    ▼
-course
+Confidence   Level    Action
 
-D.O.B
-    │
-    ▼
-dob
+95--100      HIGH     Auto accept
+75--94       MEDIUM   Ask user
+0--74        LOW      Reject
 
-D.O.A
-    │
-    ▼
-doa
+Import Memory Learning
 
-MR No
-    │
-    ▼
-mrNo
+Added persistent header-learning through Prisma:
 
-Date
-    │
-    ▼
-receiptDate
+src/modules/import/memory/memory.ts
+src/modules/import/memory/types.ts
 
-Amt. / Amt
-    │
-    ▼
-amount
-```
+Mappings are stored per school using the normalized header and can be
+reused in future imports.
 
-The mapper must not access Prisma.
+Weak mappings and UNKNOWN mappings are ignored.
 
----
+Import Upload UI
 
-## Student Import Validator
+Updated student upload functionality with:
 
-Responsible for validating imported rows.
+.xlsx support
 
-Checks include:
+Loading state
 
-```text
-Missing Registration Number
+Import summary
 
-Missing Student Name
+Error handling
 
-Invalid DOB
+File reset after success
 
-Invalid Admission Date
+Success callback
 
-Invalid Amount
+Endpoint:
 
-Duplicate Registration Number
+/api/import/students
 
-Duplicate MR Number
+Dashboard
 
-Unknown Course
+Expanded dashboard functionality under:
 
-Malformed Excel Row
-```
+src/components/dashboard/
+src/modules/dashboard/
+src/app/api/dashboard/
 
-The validator must not access Prisma directly.
+Includes Recent Payments, Revenue, notices, and finance-related
+dashboard data.
 
-Database-dependent duplicate validation should be performed by the import service.
+Revenue Chart
 
----
+Cleaned the dashboard revenue chart and removed unused Recharts types.
 
-## Student Import Service
+Theme & Responsive UI
 
-Responsible for database operations.
+Updated:
 
-```text
-Validated Rows
-      │
-      ▼
-StudentImportService
-      │
-      ▼
-Prisma Transaction
-      │
-      ├── Student Upsert
-      │
-      ├── Receipt Upsert
-      │
-      ├── ImportJob Creation
-      │
-      └── ImportError Creation
-      │
-      ▼
-PostgreSQL
-```
+src/components/theme-segment-control.tsx
+src/components/theme-toggle-button.tsx
+src/hooks/use-mobile.ts
+src/components/ui/carousel.tsx
 
----
+Theme supports:
 
-# 11. Data Fetching Strategy
+Light
 
-Use Server Components for initial database reads when practical.
+Dark
 
-```text
-Server Component
-       │
-       ▼
-     Prisma
-       │
-       ▼
-  PostgreSQL
-```
+System
 
-Use Server Actions for simple application mutations.
+Mobile detection uses a 768px breakpoint.
 
-```text
-Client Form
-      │
-      ▼
-Server Action
-      │
-      ▼
-Business Service
-      │
-      ▼
-    Prisma
-      │
-      ▼
- PostgreSQL
-```
+Storage & Image Utilities
 
-Use Route Handlers when an HTTP endpoint is genuinely useful.
+Added storage utilities under:
 
-Examples:
+src/lib/storage/
 
-```text
-Excel Uploads
+Image utilities use sharp for:
 
-Webhooks
+Compression
 
-External Integrations
+Resizing
 
-Mobile Applications
+JPEG/WebP/PNG output
 
-Public APIs
-```
+Thumbnail generation
 
-Use TanStack Query only where client-side behavior requires:
+Metadata extraction
 
-```text
-Client-side caching
+Admissions, Batches & Fees
 
-Interactive refetching
+Added foundations for:
 
-Polling
+src/modules/admission/
+src/modules/batch/
+src/modules/fee/
 
-Optimistic updates
+and related hooks/APIs.
 
-Infinite scrolling
-```
+These modules connect students, courses, admissions, batches, fees, and
+payments.
 
-Do not use TanStack Query automatically for every database query.
+Additional ERP Modules
 
----
+Added foundations for:
 
-# 12. Current Development Order
+src/modules/attendance/
+src/modules/teacher/
+src/modules/exams/
+src/modules/notice/
+src/modules/document/
 
-```text
-1. PostgreSQL
-      ↓
+Authentication Pages
 
-2. Prisma Connection
-      ↓
+Updated:
 
-3. Prisma Schema
-      ↓
+src/app/(auth)/forgot-password/page.tsx
+src/app/(auth)/reset-password/page.tsx
+src/app/(auth)/verify-otp/page.tsx
 
-4. First Migration
-      ↓
+Prisma / Database
 
-5. Test Database Query
-      ↓
+Updated:
 
-6. Student CRUD
-      ↓
+prisma.config.ts
+prisma/schema.prisma
+src/lib/prisma.ts
 
-7. Classes / Sections
-      ↓
+Added:
 
-8. Student Excel Import
-      ↓
+prisma/seed.ts
 
-9. Attendance
-      ↓
+The project continues to use Prisma for database access.
 
-10. Fees / Payments
-      ↓
+UI / React Cleanup
 
-11. Basic Reports
-      ↓
+The project was checked using:
 
-12. Authentication + Authorization Hardening
-```
+npm run lint
 
----
+The cleanup addressed:
 
-# 13. Development Phase Details
+Unused imports
 
-## Phase 1 — Database Foundation
+Unused variables
 
-```text
-PostgreSQL
+React Hook Form compiler warnings
 
-     ↓
+React state updates inside effects
 
-Prisma Installation
+TanStack Table React Compiler warning
 
-     ↓
+FeeSchedule effect dependency warning
 
-DATABASE_URL Configuration
+Legacy Finance components
 
-     ↓
+DataTable keeps TanStack Table's useReactTable() API with a targeted
+ESLint suppression because the API is intentionally incompatible with
+React Compiler memoization.
 
-Prisma Schema
+FeeSchedule was changed to notify selection changes directly during
+selection updates rather than using an effect only to synchronize state.
 
-     ↓
+DataTable
 
-First Migration
+Updated:
 
-     ↓
+src/components/data-table/
 
-Prisma Client
+Features include:
 
-     ↓
+Sorting
 
-Test Database Query
-```
+Filtering
 
-Goal:
+Pagination
 
-The Next.js application can successfully read and write PostgreSQL data using Prisma.
+Column visibility
 
----
+Row selection
 
-## Phase 2 — Student Module
+Bulk actions
 
-Build:
+Search
 
-```text
-Student Prisma Model
+Empty state
 
-Student Validation Schema
+Toolbar
 
-Create Student
+Pagination controls
 
-List Students
+Architecture
 
-View Student
+General ERP flow
 
-Update Student
-
-Archive Student
-```
-
-Goal:
-
-A complete Student CRUD feature works end-to-end.
-
----
-
-## Phase 3 — Classes / Sections
-
-Build:
-
-```text
-Academic Year
-
-Class
-
-Section
-
-Student Enrollment / Assignment
-```
-
-Goal:
-
-Students can be associated with an academic structure.
-
----
-
-## Phase 4 — Student Excel Import
-
-Build:
-
-```text
-Excel Upload
-
-Excel Parser
-
-Column Mapping
-
-Validation
-
-Preview
-
-Import Confirmation
-
-Batch Database Import
-
-Import Report
-
-Row-Level Errors
-```
-
-Goal:
-
-Existing institute Excel data can be safely migrated into PostgreSQL.
-
----
-
-## Phase 5 — Attendance
-
-Build:
-
-```text
-Select Class
-
-Select Section
-
-Select Date
-
-Load Students
-
-Mark Present / Absent / Leave
-
-Save Attendance
-
-View Attendance History
-```
-
-Goal:
-
-Daily student attendance works end-to-end.
-
----
-
-## Phase 6 — Fees / Payments
-
-Build:
-
-```text
-Fee Structure
-
-Student Fee Assignment
-
-Payment Entry
-
-Receipt
-
-Due Calculation
-
-Payment History
-```
-
-Goal:
-
-Basic institute fee management works end-to-end.
-
----
-
-## Phase 7 — Reports
-
-Build:
-
-```text
-Student Reports
-
-Attendance Reports
-
-Fee Collection Reports
-
-Outstanding Due Reports
-
-Excel / CSV Export
-```
-
-Goal:
-
-Administrators can view and export essential operational information.
-
----
-
-## Phase 8 — Authentication and Authorization Hardening
-
-Build:
-
-```text
-Login
-
-Logout
-
-Session Management
-
-Password Hashing
-
-Route Protection
-
-Role-Based Access Control
-
-Permission Checks
-
-Audit Logging
-```
-
-Goal:
-
-The ERP can safely support real users and multiple permission levels.
-
----
-
-# 14. Removed / Deferred Features
-
-The following features are not part of the current MVP:
-
-```text
-Analytics
-
-Admissions
-
-Subjects
-
-Curriculum
-
-Lesson Plans
-
-Timetable
-
-Homework
-
-Online Classes
-
-Study Materials
-
-Examinations
-
-Assignments
-
-Parents
-
-Staff / HR
-
-Payroll
-
-Events
-
-Transport
-
-Library
-
-Hostel
-
-Inventory
-
-Cafeteria
-
-Security
-
-Communication
-
-CRM
-
-Notifications
-
-Integrations
-
-Workflow Automation
-
-Billing
-
-Support
-```
-
-These features may be implemented later as separate modules.
-
-Do not create empty folders for deferred features.
-
-Do not create database models for deferred features until they are required.
-
-Do not add deferred features back to the sidebar until real routes exist.
-
----
-
-# 15. Core Dependency Rule
-
-The application follows this dependency direction:
-
-```text
-Page / Route
-     │
-     ▼
-Feature Module
-     │
-     ▼
-Business Logic + Validation
-     │
-     ▼
+UI
+ ↓
+Hooks
+ ↓
+API Routes
+ ↓
+Services
+ ↓
 Prisma
-     │
-     ▼
+ ↓
 PostgreSQL
-```
 
-Dependencies should flow downward.
+Finance flow
 
-Lower layers must not depend on higher layers.
+Dashboard / Finance UI
+ ↓
+Finance Hooks
+ ↓
+Finance API
+ ↓
+Finance Services
+ ↓
+Prisma
+ ↓
+Database
 
----
+Student import flow
 
-# 16. Core Architecture Rules
+Excel
+ ↓
+Excel Parser
+ ↓
+Header Normalizer
+ ↓
+Memory Lookup
+ ↓
+Ollama AI
+ ↓
+Confidence Evaluation
+ ↓
+Field Mapping
+ ↓
+Validation
+ ↓
+Student Import Service
+ ↓
+Prisma
 
-UI primitives do not access Prisma.
+Development Commands
 
-Client Components do not access Prisma.
+Install dependencies:
 
-Browser code does not contain database credentials.
+npm install
 
-Pages should not contain large amounts of business logic.
+Run development server:
 
-Pages should compose feature modules.
+npm run dev
 
-Feature modules contain domain-specific application logic.
+Run lint:
 
-The Excel parser does not access Prisma.
+npm run lint
 
-The Excel mapper does not access Prisma.
+Build:
 
-The Excel validator does not access Prisma.
+npm run build
 
-Only server-side code may access Prisma.
+Ollama Setup
 
-Database writes should be validated before execution.
+Check Ollama:
 
-Critical multi-record database operations should use Prisma transactions.
+ollama --version
 
-Students with historical records should be archived instead of physically deleted.
+List models:
 
-Every active sidebar URL must have a real Next.js route.
+ollama list
 
-Do not use catch-all routes to hide unfinished features.
+Run the configured model:
 
-Do not create generic abstractions before at least one concrete feature works end-to-end.
+ollama run qwen3:8b
 
-Build the Student importer first before extracting a generic import engine.
+The application expects:
 
----
+http://localhost:11434
 
-# 17. Current Project Status
+and calls:
 
-The project is currently in:
+/api/generate
 
-```text
-PHASE 1
+Git
 
-PostgreSQL
-     ↓
-Prisma Connection    ← CURRENT WORK
-     ↓
-Prisma Schema
-     ↓
-First Migration
-     ↓
-Test Database Query
-```
+Current branch:
 
-The immediate development task is:
+feature/finance
 
-```text
-Configure PostgreSQL
+Review changes:
 
-        ↓
+git status
+git diff
 
-Configure DATABASE_URL
+Stage everything:
 
-        ↓
+git add -A
 
-Validate Prisma Configuration
+Review staged changes:
 
-        ↓
+git diff --cached --stat
+git diff --cached --name-status
 
-Design Minimum Prisma Schema
+Commit:
 
-        ↓
+git commit -m "What we created"
 
-Run First Migration
+Push:
 
-        ↓
+git push origin feature/finance
 
-Test One Database Query
-```
+Current Status
 
-Do not start Student CRUD, Excel Import, Attendance, Fees, Reports, or Authentication until the Prisma connection and initial schema are working correctly.
+Completed in this development cycle:
 
----
+Finance API restructuring
 
-# 18. Important Note About the Project Tree
+Finance services
 
-This document describes the target structure the application is being built toward.
+Payment history
 
-Not every folder shown in this document necessarily exists on disk yet.
+Payment details
 
-Generated directories must not be treated as source architecture.
+Finance dashboard data
 
-Examples:
+Recent Payments integration
 
-```text
-.next/
+Course management
 
-node_modules/
-```
+Admissions foundation
 
-The `.next` directory may contain generated build output referencing routes that were previously deleted.
+Registration number generator
 
-The presence of old route names inside `.next` does not mean those routes still exist in the current source code.
+Student management improvements
 
-Only the following directories should be used when evaluating the application's source architecture:
+Excel student import
 
-```text
-src/
+Ollama AI header matching
 
-prisma/
+AI confidence handling
 
-public/
+Import memory learning
 
-doc/
-```
+Dashboard improvements
 
-Generated build output and installed dependencies should not be used to determine the current application structure.
+Theme improvements
 
----
+Storage utilities
 
-# 19. Final Architecture Summary
+Image processing utilities
 
-```text
-Browser
-   │
-   ▼
-Next.js App Router
-   │
-   ├── Pages / Layouts
-   │
-   ├── Server Components
-   │
-   ├── Client Components
-   │
-   ├── Server Actions
-   │
-   └── Route Handlers
-   │
-   ▼
-Feature Modules
-   │
-   ├── Student
-   ├── Class
-   ├── Attendance
-   ├── Fee
-   ├── Report
-   ├── User
-   └── Import
-   │
-   ▼
-Business Logic
-   │
-   ├── Validation
-   ├── Mapping
-   ├── Services
-   ├── Queries
-   └── Actions
-   │
-   ▼
-Prisma ORM
-   │
-   ▼
-PostgreSQL
-```
+Fee module foundation
 
-The development strategy is:
+Batch module foundation
 
-```text
-Build Small
+Attendance module foundation
 
-     ↓
+Teacher module foundation
 
-Complete One Feature End-to-End
+Exam module foundation
 
-     ↓
+Notice module foundation
 
-Test It
+Document module foundation
 
-     ↓
+React/ESLint cleanup
 
-Stabilize It
+Verification
 
-     ↓
+Run:
 
-Extract Reusable Patterns
+npm run lint
 
-     ↓
+The intended final state is:
 
-Add the Next Feature
+0 errors
+0 warnings
 
-     ↓
-
-Grow the ERP Incrementally
-```
-
-The first complete business feature should be:
-
-```text
-Student CRUD
-```
-
-The first bulk data migration feature should be:
-
-```text
-Student Excel Import
-```
-
-The current task is:
-
-```text
-PostgreSQL + Prisma Connection
-```
-````
+This README documents the current Finance/ERP development cycle and the
+architecture changes made across the project.
